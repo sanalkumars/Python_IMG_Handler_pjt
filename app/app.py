@@ -1,6 +1,6 @@
 from fastapi import FastAPI,HTTPException
-from typing import Optional
 import uvicorn
+from app.schema import Post
 
 app =  FastAPI()
 
@@ -34,7 +34,7 @@ posts = [
 
 
 @app.get("/posts")
-async def get_all_posts(userId : Optional[int]=None):
+async def get_all_posts(userId:int = None):
     if userId is None:
         return posts
     # post_by_user = next((p for p in posts if p["userId"] == userId),None) #this will return only one dictionary even if there are multiple data for the specific end point
@@ -51,3 +51,13 @@ async def get_post_by_id(id:int):
             return post
     raise HTTPException(status_code=404, detail="Post not found")
 
+# next learning post 
+
+@app.post("/post",status_code =201)
+async def create_new_poast(new_post : Post):
+    post_dic = new_post.model_dump()
+
+    if any(p['id'] == post_dic["id"] for p in posts):
+        raise HTTPException(status_code =409,detail="Post already exists")
+    posts.append(post_dic)
+    return post_dic

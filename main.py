@@ -4,6 +4,6 @@ if __name__ == "__main__":
     uvicorn.run(
         "app.app:app",        # app.py → app variable
         host="0.0.0.0",
-        port=8000,
+        port=3000,
         reload=True
     )
