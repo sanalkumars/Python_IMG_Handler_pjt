@@ -1,63 +1,52 @@
-from fastapi import FastAPI,HTTPException
-import uvicorn
-from app.schema import Post
+from fastapi import FastAPI, HTTPException, Depends
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
-app =  FastAPI()
+from app.schema import Post, PostCreate
+from app.db import create_db, Post as PostModel, get_async_session
+from contextlib import asynccontextmanager
 
-posts = [
-    {
-        "userId": 1,
-        "id": 1,
-        "title": "sunt aut facere repellat provident occaecati excepturi optio reprehenderit",
-        "body": "quia et suscipit\nsuscipit recusandae consequuntur expedita et cum\nreprehenderit molestiae ut ut quas totam\nnostrum rerum est autem sunt rem eveniet architecto"
-    },
-    {
-        "userId": 1,
-        "id": 2,
-        "title": "qui est esse",
-        "body": "est rerum tempore vitae\nsequi sint nihil reprehenderit dolor beatae ea dolores neque\nfugiat blanditiis voluptate porro vel nihil molestiae ut reiciendis\nqui aperiam non debitis possimus qui neque nisi nulla"
-    },
-      {
-    "userId": 2,
-    "id": 12,
-    "title": "in quibusdam tempore odit est dolorem",
-    "body": "itaque id aut magnam\npraesentium quia et ea odit et ea voluptas et\nsapiente quia nihil amet occaecati quia id voluptatem\nincidunt ea est distinctio odio"
-  },
-  {
-    "userId": 2,
-    "id": 13,
-    "title": "dolorum ut in voluptas mollitia et saepe quo animi",
-    "body": "aut dicta possimus sint mollitia voluptas commodi quo doloremque\niste corrupti reiciendis voluptatem eius rerum\nsit cumque quod eligendi laborum minima\nperferendis recusandae assumenda consectetur porro architecto ipsum ipsam"
-  }
-]
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    await create_db()
+    yield
 
-
+app = FastAPI(lifespan=lifespan)
 
 @app.get("/posts")
-async def get_all_posts(userId:int = None):
-    if userId is None:
-        return posts
-    # post_by_user = next((p for p in posts if p["userId"] == userId),None) #this will return only one dictionary even if there are multiple data for the specific end point
-    post_by_user = [p for p in posts if p["userId"] == userId] # here this gets all the matching data as a list of dictionary
-    if not  post_by_user :
-        raise HTTPException(status_code = 404,detail="Post not found")
-    return post_by_user
+async def get_all_posts(
+    userId: int | None = None,
+    session: AsyncSession = Depends(get_async_session)
+):
+    stmt = select(PostModel)
+    if userId:
+        stmt = stmt.where(PostModel.userId == userId)
+    
+    result = await session.execute(stmt)
+    db_posts = result.scalars().all()
+    
+    if not db_posts:
+        raise HTTPException(status_code=404, detail="No posts found")
+    return db_posts
 
+@app.get("/post/{post_id}")
+async def get_post_by_id(
+    post_id: int,
+    session: AsyncSession = Depends(get_async_session)
+):
+    result = await session.get(PostModel, post_id)
+    if not result:
+        raise HTTPException(status_code=404, detail="Post not found")
+    return result
 
-@app.get("/post/{id}")
-async def get_post_by_id(id:int):
-    for post in posts:
-        if(post["id"] == id):
-            return post
-    raise HTTPException(status_code=404, detail="Post not found")
-
-# next learning post 
-
-@app.post("/post",status_code =201)
-async def create_new_poast(new_post : Post):
-    post_dic = new_post.model_dump()
-
-    if any(p['id'] == post_dic["id"] for p in posts):
-        raise HTTPException(status_code =409,detail="Post already exists")
-    posts.append(post_dic)
-    return post_dic
+@app.post("/post", status_code=201)
+async def create_new_post(
+    new_post: PostCreate,
+    session: AsyncSession = Depends(get_async_session)
+):
+    # Auto-generate ID via autoincrement, no conflict check needed
+    db_post = PostModel(**new_post.model_dump())
+    session.add(db_post)
+    await session.commit()
+    await session.refresh(db_post)
+    return db_post

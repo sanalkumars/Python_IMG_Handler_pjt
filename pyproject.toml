@@ -11,4 +11,7 @@ dependencies = [
     "imagekitio>=5.0.0",
     "python-dotenv>=1.2.1",
     "uvicorn>=0.40.0",
+    "sqlalchemy[asyncio]>=2.0.0",  # already implied but make sure
+    "aiomysql>=0.2.0",             # async MySQL driver
 ]
+
