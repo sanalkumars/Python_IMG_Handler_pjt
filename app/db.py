@@ -60,6 +60,7 @@ DB_PORT = os.getenv("DB_PORT", "3306")
 
 DATABASE_URL = f"mysql+aiomysql://{DB_USER}:{DB_PASS}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
 ADMIN_URL = f"mysql+aiomysql://{DB_USER}:{DB_PASS}@{DB_HOST}:{DB_PORT}/"
+Databaseurl = "sqlite+aiosqlite:///./test.db"
 class Base(DeclarativeBase):
     pass
 
